@@ -1,48 +1,43 @@
-let userlist = [
-    {
-        username:"test",
-        password: "test",
-        email: "test@test.com",
-        role: "user",
-        token: "user-token"
-    },
-    {
-        username:"admin",
-        password: "admin",
-        email: "admin@admin.com",
-        role: "admin",
-        token: "admin-token"
-    }
-]
+import { userSchema } from "../models/userList.js";
+import jwt from 'jsonwebtoken'
 
-export const loginUser = (req, resp) => {
+export const loginUser = async(req, resp) => {
    const {username, password} = req.body
-    const user = userlist.find((item) => item.username === username)
-    if (!user) {
-        resp.status(401).json()
+   const result = await userSchema.find({username: username})
+    if (result.length === 0) {
+
+        resp.status(401).end()
 }
-    if (user?.password === password) {
-        resp.status(200).json(user)
+    if (result[0]?.password === password) {
+
+        const id = result[0].id
+        const token = jwt.sign({id, role: result[0].role}, "jwtSecret", {})
+
+        resp.header({"x-access-token": token})
+        resp.status(200).send({user: result})
     }
-    else {resp.status(409).json()}
+    else {resp.status(409).end()}
 };
 
-export const registerUser = (req, resp) => {
+export const registerUser = async(req, resp) => {
     const {username, email, password} = req.body
-    if (userlist.find((item) => item.username === username)){
-        resp.status(200).json()
+    if ((await userSchema.find({username: username})).length !== 0) {
+        resp.status(409).json({problem:"username"})
         return
     }
-    if (userlist.find((item) => item.email === email)){
-        resp.status().json()
+  
+    if ((await userSchema.find({email: email})).length !== 0){
+        resp.status(409).json({problem:"email"})
         return
     }
-    userlist.push({
-        username:username,
-        password: password,
-        email: email,
-        role: "user",
-        token: "user-token"
-    })
+
+    userSchema.insertMany(
+        {  
+            username:username,
+            password: password,
+            email: email,
+            role: "user",
+        }
+    );
     resp.status(201).json()
 }
